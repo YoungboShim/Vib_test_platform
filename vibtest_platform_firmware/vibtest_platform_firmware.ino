@@ -11,9 +11,18 @@ const int motor4_R = 13;
 bool stringComplete = false;
 char inData[1000];
 int dataIdx = 0;
-bool motorOn[9] = {false, false, false, false, false, false, false, false, false};
+int act_order[4] = {-1, -1, -1, -1};
+float delay_list[4] = {4000, 4000, 4000, 4000}; // 4000 means unactivated.
 
-int curTime = 0; // Timer starts from 0 when pattern starts
+struct motor_unit
+{
+  float magnitude = 0; // from 0~1
+  unsigned int delay = 4000; // delay = 3ms * magnitude
+  int pin_F;
+  int pin_R;
+  bool onoff = false;
+};
+motor_unit motors[4];
 
 void setup() {
   pinMode (motor1_F, OUTPUT);
@@ -24,6 +33,15 @@ void setup() {
   pinMode (motor3_R, OUTPUT);
   pinMode (motor4_F, OUTPUT);
   pinMode (motor4_R, OUTPUT);
+
+  motors[0].pin_F = motor1_F;
+  motors[0].pin_R = motor1_R;
+  motors[1].pin_F = motor2_F;
+  motors[1].pin_R = motor2_R;
+  motors[2].pin_F = motor3_F;
+  motors[2].pin_R = motor3_R;
+  motors[3].pin_F = motor4_F;
+  motors[3].pin_R = motor4_R;
 
   Serial.begin(115200);
   while (! Serial);
@@ -51,7 +69,7 @@ void getSerial()
 }
 
 // Function: loopSerial
-// Serial input for debug 
+// Serial input for debug
 void loopSerial()
 {
   getSerial();
@@ -66,34 +84,30 @@ void loopSerial()
       inData[lineIdx] = NULL;
       lineIdx++;
     }
-    
+
     char c1 = line[0], c2 = line[1], c3 = line[2], c4 = line[3];
     int pokeNum = 0;
     int motorNum = 0;
-    
+    int motorMag = 0;
+
     switch(c1)
     {
       case 'm':
         motorNum = (int)c2 - 49;
-        if(0 <= motorNum && motorNum < 9)
+        motorMag = ((int)c3 - 48) * 10 + (int)c4 - 48;
+        if(0 <= motorNum && motorNum < 4)
         {
-          motorOn[motorNum] = !motorOn[motorNum];
           Serial.print("Motor");
           Serial.print(c2);
-          if(motorOn[motorNum])
-          {
-            Serial.print(": ON\n");
-          }
-          else
-          {
-             Serial.print(": OFF\n");
-          }
+          Serial.print(": ");
+          Serial.println(motorMag);
+          motorActivate(motorNum, motorMag);
           Serial.flush();
         }
         break;
       case 'a':
         motorNum = (int)c2 - 49;
-        if(0 <= motorNum && motorNum < 9)
+        if(0 <= motorNum && motorNum < 4)
         {
           Serial.print("Pulse");
           Serial.println(c2);
@@ -118,9 +132,9 @@ void loopSerial()
         break;
       case 'z':
         Serial.println("Stop all");
-        for(int i=0;i<9;i++)
+        for(int i=0;i<4;i++)
         {
-          motorOn[i] = false;
+          motorActivate(i, 0);
         }
         Serial.flush();
         break;
@@ -131,159 +145,173 @@ void loopSerial()
   }
 }
 
+void reorder_delay()
+{
+  for(int i=0;i<4;i++)
+  {
+    delay_list[i] = motors[i].delay;
+    act_order[i] = i;
+  }
+
+  for(int i=0;i<3;i++)
+  {
+    for(int j=i+1;j<4;j++)
+    {
+      if(delay_list[i] > delay_list[j])
+      {
+        float tmp_delay = delay_list[i];
+        delay_list[i] = delay_list[j];
+        delay_list[j] = tmp_delay;
+
+        float tmp_order = act_order[i];
+        act_order[i] = act_order[j];
+        act_order[j] = tmp_order;
+      }
+    }
+  }
+
+  //Serial.println("reorder result");
+  for(int i=0;i<4;i++)
+  {
+    if(motors[act_order[i]].onoff == false)
+    {
+      act_order[i] = -1;
+    }
+    else if(i > 0)
+    {
+      delay_list[i] = motors[act_order[i]].delay - motors[act_order[i-1]].delay;
+    }
+
+    /*
+    Serial.print("M");
+    Serial.print(act_order[i]);
+    Serial.print(": ");
+    Serial.println(delay_list[i]);
+    */
+  }
+}
+
+void motorActivate(int motor_num, int mag)
+{
+  if(mag > 0)
+  {
+    motors[motor_num].magnitude = (float)mag / 100.0;
+    motors[motor_num].delay = (unsigned int)(2000.0 * (float)mag / 100.0);
+    motors[motor_num].onoff = true;
+  }
+  else
+  {
+    motors[motor_num].magnitude = 0;
+    motors[motor_num].delay = 4000;
+    motors[motor_num].onoff = false;
+  }
+  reorder_delay();
+}
+
+
 // Function: loopMotorOnOff
 // Turn on LRA if true
 void loopMotorOnOff ()
 {
-  digitalWrite(motor1_F, LOW);
-  digitalWrite(motor1_R, LOW);
-  digitalWrite(motor2_F, LOW);
-  digitalWrite(motor2_R, LOW);
-  digitalWrite(motor3_F, LOW);
-  digitalWrite(motor3_R, LOW);
-  digitalWrite(motor4_F, LOW);
-  digitalWrite(motor4_R, LOW);
-  
-  //Forward
-  if(motorOn[0])
+  for(int i=0;i<4;i++)
   {
-    digitalWrite(motor1_F, HIGH);
-    digitalWrite(motor1_R, LOW);
-  }
-  if(motorOn[1])
-  {
-    digitalWrite(motor2_F, HIGH);
-    digitalWrite(motor2_R, LOW);
-  }
-  if(motorOn[2])
-  {
-    digitalWrite(motor3_F, HIGH);
-    digitalWrite(motor3_R, LOW);
-  }
-  if(motorOn[3])
-  {
-    digitalWrite(motor4_F, HIGH);
-    digitalWrite(motor4_R, LOW);
-  }
-     
-  delayCount(3);
-  
-  if(motorOn[0])
-  {
-    digitalWrite(motor1_F, LOW);
-    digitalWrite(motor1_R, LOW);
-  }
-  if(motorOn[1])
-  {
-    digitalWrite(motor2_F, LOW);
-    digitalWrite(motor2_R, LOW);
-  }
-  if(motorOn[2])
-  {
-    digitalWrite(motor3_F, LOW);
-    digitalWrite(motor3_R, LOW);
-  }
-  if(motorOn[3])
-  {
-    digitalWrite(motor4_F, LOW);
-    digitalWrite(motor4_R, LOW);
-  }
-  
-  //delayCount(2);
-  
-  //Reverse
-  if(motorOn[0])
-  {
-    digitalWrite(motor1_F, LOW);
-    digitalWrite(motor1_R, HIGH);
-  }
-  if(motorOn[1])
-  {
-    digitalWrite(motor2_F, LOW);
-    digitalWrite(motor2_R, HIGH);
-  }
-  if(motorOn[2])
-  {
-    digitalWrite(motor3_F, LOW);
-    digitalWrite(motor3_R, HIGH);
-  }
-  if(motorOn[3])
-  {
-    digitalWrite(motor4_F, LOW);
-    digitalWrite(motor4_R, HIGH);
-  }
-  
-  delayCount(3);
-  
-  if(motorOn[0])
-  {
-    digitalWrite(motor1_F, LOW);
-    digitalWrite(motor1_R, LOW);
-  }
-  if(motorOn[1])
-  {
-    digitalWrite(motor2_F, LOW);
-    digitalWrite(motor2_R, LOW);
-  }
-  if(motorOn[2])
-  {
-    digitalWrite(motor3_F, LOW);
-    digitalWrite(motor3_R, LOW);
-  }
-  if(motorOn[3])
-  {
-    digitalWrite(motor4_F, LOW);
-    digitalWrite(motor4_R, LOW);
+    digitalWrite(motors[i].pin_F, LOW);
+    digitalWrite(motors[i].pin_R, LOW);
   }
 
-  //delayCount(2);
+  // Forward
+  for(int i=0;i<4;i++)
+  {
+    if(motors[i].onoff)
+    {
+      digitalWrite(motors[i].pin_F, HIGH);
+      digitalWrite(motors[i].pin_R, LOW);
+    }
+  }
+
+  // Stand-by
+  for(int i=0;i<4;i++)
+  {
+    if(act_order[i] != -1)
+    {
+      delayMicroseconds(delay_list[i]);
+      digitalWrite(motors[act_order[i]].pin_F, LOW);
+      digitalWrite(motors[act_order[i]].pin_R, LOW);
+    }
+    else
+    {
+      if(i > 0)
+      {
+        delayMicroseconds(2000 - motors[act_order[i-1]].delay);
+      }
+      else
+      {
+        delayMicroseconds(2000);
+      }
+      break;
+    }
+  }
+
+  //Reverse
+  for(int i=0;i<4;i++)
+  {
+    if(motors[i].onoff)
+    {
+      digitalWrite(motors[i].pin_F, LOW);
+      digitalWrite(motors[i].pin_R, HIGH);
+    }
+  }
+
+  // Stand-by
+  for(int i=0;i<4;i++)
+  {
+    if(act_order[i] != -1)
+    {
+      delayMicroseconds(delay_list[i]);
+      digitalWrite(motors[act_order[i]].pin_F, LOW);
+      digitalWrite(motors[act_order[i]].pin_R, LOW);
+    }
+    else
+    {
+      if(i > 0)
+      {
+        delayMicroseconds(2000 - delay_list[i-1]);
+      }
+      else
+      {
+        delayMicroseconds(2000);
+      }
+      break;
+    }
+  }
 }
 
 void motorPulse(int motor_Num)
 {
   byte motor_F, motor_R;
 
-  switch(motor_Num)
-  {
-    case 0:
-      motor_F = motor1_F;
-      motor_R = motor1_R;
-      break;
-    case 1:
-      motor_F = motor2_F;
-      motor_R = motor2_R;
-      break;
-    case 2:
-      motor_F = motor3_F;
-      motor_R = motor3_R;
-      break;
-    case 3:
-      motor_F = motor4_F;
-      motor_R = motor4_R;
-      break;
-    default:
-      break;
-  }
-  
+  motor_F = motors[motor_Num].pin_F;
+  motor_R = motors[motor_Num].pin_R;
+
   digitalWrite(motor_F, LOW);
   digitalWrite(motor_R, LOW);
-  
+
   //Forward
   digitalWrite(motor_F, HIGH);
   digitalWrite(motor_R, LOW);
-  
-  delayCount(3);
-  
+
+  delayCount(2);
+
   digitalWrite(motor_F, LOW);
   digitalWrite(motor_R, LOW);
 
   //delayCount(2);
-  
+
   //Reverse
   digitalWrite(motor_F, LOW);
   digitalWrite(motor_R, HIGH);
 
-  delayCount(3);
+  delayCount(2);
 
   digitalWrite(motor_F, LOW);
   digitalWrite(motor_R, LOW);
@@ -357,6 +385,5 @@ void phy_rabbit()
 // Delay time and count up currTime
 void delayCount(int time)
 {
-  curTime = curTime + time;
   delay(time);
 }
