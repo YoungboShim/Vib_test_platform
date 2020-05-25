@@ -90,6 +90,11 @@ void loopSerial()
     int motorNum = 0;
     int motorMag = 0;
 
+    Serial.print(c1);
+    Serial.print(c2);
+    Serial.print(c3);
+    Serial.println(c4);
+
     switch(c1)
     {
       case 'm':
