@@ -45,14 +45,53 @@ def moving_vib(start_tactor, end_tactor, duration, amplitude, ser_port):
     ser_port.write(("m" + str(end_tactor) + "%02d" % 0 + "\n").encode())
     ser_port.flush()
 
+def virtual_tactor(pos, amplitude):
+    gamma = 1
+    tactor_pos = [-3, -1, 1, 3]
+    tactor_amp = []
+
+    for i in range(4):
+        single_amp = amplitude * math.pow((1 / (1 + math.pow(pos - tactor_pos[i], 2))), gamma) * 0.99
+        tactor_amp.append(single_amp)
+
+    return tactor_amp
+
+# start_pos: 0 is middle of tactors. each tactors position (-3, -1, 1, 3)
+# duration: ms
+# amplitude: 0~100
+def virtual_move(start_pos, end_pos, duration, amplitude, ser_port):
+    update_time = 5 # 5ms
+    start_time = dt.datetime.now()
+    curr_time = start_time
+    tmp_time = start_time
+    elpased_time = 0
+
+    while elpased_time < duration:
+        if (curr_time - tmp_time).microseconds / 1e3 > update_time:
+            tmp_time = curr_time
+            curr_pos = start_pos + (end_pos - start_pos) * elpased_time / duration
+            amp_list = virtual_tactor(curr_pos, amplitude)
+            for i in range(4):
+                tactor_cmd = "m" + str(i + 1) + "%02d" % amp_list[i] + "\n"
+                ser_port.write(tactor_cmd.encode())
+            ser_port.flush()
+
+        curr_time = dt.datetime.now()
+        elpased_time = (curr_time - start_time).seconds * 1e3 + (curr_time - start_time).microseconds / 1e3
+
+    for i in range(4):
+        tactor_cmd = "m" + str(i + 1) + "00\n"
+        ser_port.write(tactor_cmd.encode())
+    ser_port.flush()
+
 def main(args):
     time.sleep(2)
 
     ser = serial.Serial(args.port, args.baud_rate, timeout = 1)
 
-    moving_vib(1, 2, 500, 100, ser)
-    moving_vib(2, 3, 500, 100, ser)
-    moving_vib(3, 4, 500, 100, ser)
+    virtual_move(-3, 7, 1000, 100, ser)
+
+    time.sleep(1)
     ser.close()
 
 if __name__ =='__main__':
