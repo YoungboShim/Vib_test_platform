@@ -1,4 +1,8 @@
-// LRA motor driver pin assignment
+#include <Servo.h>
+
+Servo servo;
+
+// Pin assignment
 const int motor1_F = 2;
 const int motor1_R = 3;
 const int motor2_F = 6;
@@ -7,8 +11,9 @@ const int motor3_F = 10;
 const int motor3_R = 11;
 const int motor4_F = 12;
 const int motor4_R = 13;
+const int servoPin = 9;
 
-bool stringComplete = false;
+bool stringComplete = false, ssOn = false;
 char inData[1000];
 int dataIdx = 0;
 int act_order[4] = {-1, -1, -1, -1};
@@ -43,9 +48,12 @@ void setup() {
   motors[3].pin_F = motor4_F;
   motors[3].pin_R = motor4_R;
 
+  servo.attach(servoPin);
+
   Serial.begin(115200);
   while (! Serial);
   Serial.println("Vibration test platform activated...");
+  servo.write(90);
 }
 
 void loop() {
@@ -90,11 +98,6 @@ void loopSerial()
     int motorNum = 0;
     int motorMag = 0;
 
-    Serial.print(c1);
-    Serial.print(c2);
-    Serial.print(c3);
-    Serial.println(c4);
-
     switch(c1)
     {
       case 'm':
@@ -121,9 +124,8 @@ void loopSerial()
         }
         break;
       case 's':
-        // sweeping
-        Serial.println("Sweeping");
-        sweeping();
+        // skin stretch
+        stretch_vib(c2);
         break;
       case 'r':
         // cutaneous rabbit
@@ -384,6 +386,50 @@ void phy_rabbit()
   motorPulse(3);
   delayCount(term);
   motorPulse(3);
+}
+
+void stretch_vib(char tactor)
+{
+  Serial.println("Skin stretch");
+  servo.write(120);
+  ssOn = true;
+  if(tactor == '0')
+  {
+    for(int i=0;i<10;i++)
+    {
+      motorPulse(0);
+      delay(11);
+    }
+  }
+  else if (tactor == '1')
+  {
+    for(int i=0;i<10;i++)
+    {
+      motorPulse(1);
+      delay(11);
+    }
+  }
+  
+  delay(500);
+  
+  servo.write(90);
+  ssOn = true;
+  if(tactor == '0')
+  {
+    for(int i=0;i<5;i++)
+    {
+      motorPulse(0);
+      delay(22);
+    }
+  }
+  else if (tactor == '1')
+  {
+    for(int i=0;i<5;i++)
+    {
+      motorPulse(1);
+      delay(22);
+    }
+  }
 }
 
 // Function: delayCount
