@@ -393,6 +393,7 @@ void stretch_vib(char tactor)
   Serial.println("Skin stretch");
   servo.write(120);
   ssOn = true;
+  delay(50);
   if(tactor == '0')
   {
     for(int i=0;i<10;i++)
@@ -413,6 +414,7 @@ void stretch_vib(char tactor)
   delay(500);
   
   servo.write(90);
+  delay(50);
   ssOn = true;
   if(tactor == '0')
   {
