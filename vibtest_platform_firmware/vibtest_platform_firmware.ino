@@ -116,7 +116,7 @@ void loopSerial()
         {
           Serial.print("Pulse");
           Serial.println(c2);
-          motorPulse(motorNum);
+          rptPulse(motorNum);
           Serial.flush();
         }
         break;
@@ -247,11 +247,11 @@ void loopMotorOnOff ()
     {
       if(i > 0)
       {
-        delayMicroseconds(2000 - motors[act_order[i-1]].delay);
+        delayMicroseconds(2777 - motors[act_order[i-1]].delay);
       }
       else
       {
-        delayMicroseconds(2000);
+        delayMicroseconds(2777);
       }
       break;
     }
@@ -280,11 +280,11 @@ void loopMotorOnOff ()
     {
       if(i > 0)
       {
-        delayMicroseconds(2000 - delay_list[i-1]);
+        delayMicroseconds(2777 - delay_list[i-1]);
       }
       else
       {
-        delayMicroseconds(2000);
+        delayMicroseconds(2777);
       }
       break;
     }
@@ -305,23 +305,32 @@ void motorPulse(int motor_Num)
   digitalWrite(motor_F, HIGH);
   digitalWrite(motor_R, LOW);
 
-  delayCount(2);
+  delayMicroseconds(2777);
 
   digitalWrite(motor_F, LOW);
   digitalWrite(motor_R, LOW);
 
-  //delayCount(2);
+  //delay(2);
 
   //Reverse
   digitalWrite(motor_F, LOW);
   digitalWrite(motor_R, HIGH);
 
-  delayCount(2);
+  delayMicroseconds(2777);
 
   digitalWrite(motor_F, LOW);
   digitalWrite(motor_R, LOW);
 
-  //delayCount(2);
+  //delay(2);
+}
+
+void rptPulse(int motor_Num)
+{
+  for(int i=0;i<3;i++)
+  {
+    motorPulse(motor_Num);
+    delay(500);
+  }
 }
 
 void sweeping()
@@ -330,65 +339,58 @@ void sweeping()
   for(int i=0;i<5;i++)
   {
     motorPulse(0);
-    delayCount(term);
+    delay(term);
     motorPulse(1);
-    delayCount(term);
+    delay(term);
     motorPulse(2);
-    delayCount(term);
+    delay(term);
     motorPulse(3);
-    delayCount(term);
+    delay(term);
     motorPulse(2);
-    delayCount(term);
+    delay(term);
     motorPulse(1);
-    delayCount(term);
+    delay(term);
   }
 }
 
 void cut_rabbit()
 {
   int term = 80;
-  delayCount(2000);
+  delay(2000);
   motorPulse(0);
-  delayCount(term);
+  delay(term);
   motorPulse(0);
-  delayCount(term);
+  delay(term);
   motorPulse(0);
-  delayCount(term);
+  delay(term);
   motorPulse(0);
-  delayCount(term);
+  delay(term);
   motorPulse(3);
-  delayCount(term);
+  delay(term);
   motorPulse(3);
-  delayCount(term);
+  delay(term);
   motorPulse(3);
-  delayCount(term);
+  delay(term);
   motorPulse(3);
 }
 
 void phy_rabbit()
 {
   int term = 80;
-  delayCount(2000);
+  delay(2000);
   motorPulse(0);
-  delayCount(term);
+  delay(term);
   motorPulse(0);
-  delayCount(term);
+  delay(term);
   motorPulse(1);
-  delayCount(term);
+  delay(term);
   motorPulse(1);
-  delayCount(term);
+  delay(term);
   motorPulse(2);
-  delayCount(term);
+  delay(term);
   motorPulse(2);
-  delayCount(term);
+  delay(term);
   motorPulse(3);
-  delayCount(term);
+  delay(term);
   motorPulse(3);
-}
-
-// Function: delayCount
-// Delay time and count up currTime
-void delayCount(int time)
-{
-  delay(time);
 }
