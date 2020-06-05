@@ -1,7 +1,3 @@
-#include <Servo.h>
-
-Servo servo;
-
 // Pin assignment
 const int motor1_F = 2;
 const int motor1_R = 3;
@@ -13,7 +9,7 @@ const int motor4_F = 12;
 const int motor4_R = 13;
 const int servoPin = 9;
 
-bool stringComplete = false, ssOn = false;
+bool stringComplete = false;
 char inData[1000];
 int dataIdx = 0;
 int act_order[4] = {-1, -1, -1, -1};
@@ -22,7 +18,7 @@ float delay_list[4] = {4000, 4000, 4000, 4000}; // 4000 means unactivated.
 struct motor_unit
 {
   float magnitude = 0; // from 0~1
-  unsigned int delay = 4000; // delay = 3ms * magnitude
+  int delay_t = 4000; // delay_t = 3ms * magnitude
   int pin_F;
   int pin_R;
   bool onoff = false;
@@ -30,14 +26,14 @@ struct motor_unit
 motor_unit motors[4];
 
 void setup() {
-  pinMode (motor1_F, OUTPUT);
-  pinMode (motor1_R, OUTPUT);
-  pinMode (motor2_F, OUTPUT);
-  pinMode (motor2_R, OUTPUT);
-  pinMode (motor3_F, OUTPUT);
-  pinMode (motor3_R, OUTPUT);
-  pinMode (motor4_F, OUTPUT);
-  pinMode (motor4_R, OUTPUT);
+  pinMode(motor1_F, OUTPUT);
+  pinMode(motor1_R, OUTPUT);
+  pinMode(motor2_F, OUTPUT);
+  pinMode(motor2_R, OUTPUT);
+  pinMode(motor3_F, OUTPUT);
+  pinMode(motor3_R, OUTPUT);
+  pinMode(motor4_F, OUTPUT);
+  pinMode(motor4_R, OUTPUT);
 
   motors[0].pin_F = motor1_F;
   motors[0].pin_R = motor1_R;
@@ -48,17 +44,17 @@ void setup() {
   motors[3].pin_F = motor4_F;
   motors[3].pin_R = motor4_R;
 
-  servo.attach(servoPin);
+  pinMode(servoPin, OUTPUT);
 
   Serial.begin(115200);
   while (! Serial);
   Serial.println("Vibration test platform activated...");
-  servo.write(90);
+  servo_act(90, servoPin);
 }
 
 void loop() {
   loopSerial();
-  loopMotorOnOff();
+  //loopMotorOnOff();
 }
 
 void getSerial()
@@ -94,9 +90,14 @@ void loopSerial()
     }
 
     char c1 = line[0], c2 = line[1], c3 = line[2], c4 = line[3];
-    int pokeNum = 0;
     int motorNum = 0;
     int motorMag = 0;
+
+    Serial.print("loopSerial: ");
+    Serial.print(c1);
+    Serial.print(c2);
+    Serial.print(c3);
+    Serial.println(c4);
 
     switch(c1)
     {
@@ -124,8 +125,8 @@ void loopSerial()
         }
         break;
       case 's':
-        // skin stretch
-        stretch_vib(c2);
+        // skin stretch + vib tests
+        stretch_vib(c2, c3);
         break;
       case 'r':
         // cutaneous rabbit
@@ -156,7 +157,7 @@ void reorder_delay()
 {
   for(int i=0;i<4;i++)
   {
-    delay_list[i] = motors[i].delay;
+    delay_list[i] = motors[i].delay_t;
     act_order[i] = i;
   }
 
@@ -186,7 +187,7 @@ void reorder_delay()
     }
     else if(i > 0)
     {
-      delay_list[i] = motors[act_order[i]].delay - motors[act_order[i-1]].delay;
+      delay_list[i] = motors[act_order[i]].delay_t - motors[act_order[i-1]].delay_t;
     }
 
     /*
@@ -203,13 +204,13 @@ void motorActivate(int motor_num, int mag)
   if(mag > 0)
   {
     motors[motor_num].magnitude = (float)mag / 100.0;
-    motors[motor_num].delay = (unsigned int)(2000.0 * (float)mag / 100.0);
+    motors[motor_num].delay_t = (unsigned int)(2000.0 * (float)mag / 100.0);
     motors[motor_num].onoff = true;
   }
   else
   {
     motors[motor_num].magnitude = 0;
-    motors[motor_num].delay = 4000;
+    motors[motor_num].delay_t = 4000;
     motors[motor_num].onoff = false;
   }
   reorder_delay();
@@ -231,6 +232,13 @@ void loopMotorOnOff ()
   {
     if(motors[i].onoff)
     {
+      Serial.print("motorNum: ");
+      Serial.println(i);
+      Serial.print("magnitude: ");
+      Serial.println(motors[i].magnitude);
+      Serial.print("delay: ");
+      Serial.println(motors[i].delay_t);
+      
       digitalWrite(motors[i].pin_F, HIGH);
       digitalWrite(motors[i].pin_R, LOW);
     }
@@ -249,7 +257,7 @@ void loopMotorOnOff ()
     {
       if(i > 0)
       {
-        delayMicroseconds(2000 - motors[act_order[i-1]].delay);
+        delayMicroseconds(2000 - motors[act_order[i-1]].delay_t);
       }
       else
       {
@@ -307,23 +315,23 @@ void motorPulse(int motor_Num)
   digitalWrite(motor_F, HIGH);
   digitalWrite(motor_R, LOW);
 
-  delayCount(2);
+  delay(2);
 
   digitalWrite(motor_F, LOW);
   digitalWrite(motor_R, LOW);
 
-  //delayCount(2);
+  //delay(2);
 
   //Reverse
   digitalWrite(motor_F, LOW);
   digitalWrite(motor_R, HIGH);
 
-  delayCount(2);
+  delay(2);
 
   digitalWrite(motor_F, LOW);
   digitalWrite(motor_R, LOW);
 
-  //delayCount(2);
+  //delay(2);
 }
 
 void sweeping()
@@ -332,111 +340,253 @@ void sweeping()
   for(int i=0;i<5;i++)
   {
     motorPulse(0);
-    delayCount(term);
+    delay(term);
     motorPulse(1);
-    delayCount(term);
+    delay(term);
     motorPulse(2);
-    delayCount(term);
+    delay(term);
     motorPulse(3);
-    delayCount(term);
+    delay(term);
     motorPulse(2);
-    delayCount(term);
+    delay(term);
     motorPulse(1);
-    delayCount(term);
+    delay(term);
   }
 }
 
 void cut_rabbit()
 {
   int term = 80;
-  delayCount(2000);
+  delay(2000);
   motorPulse(0);
-  delayCount(term);
+  delay(term);
   motorPulse(0);
-  delayCount(term);
+  delay(term);
   motorPulse(0);
-  delayCount(term);
+  delay(term);
   motorPulse(0);
-  delayCount(term);
+  delay(term);
   motorPulse(3);
-  delayCount(term);
+  delay(term);
   motorPulse(3);
-  delayCount(term);
+  delay(term);
   motorPulse(3);
-  delayCount(term);
+  delay(term);
   motorPulse(3);
 }
 
 void phy_rabbit()
 {
   int term = 80;
-  delayCount(2000);
+  delay(2000);
   motorPulse(0);
-  delayCount(term);
+  delay(term);
   motorPulse(0);
-  delayCount(term);
+  delay(term);
   motorPulse(1);
-  delayCount(term);
+  delay(term);
   motorPulse(1);
-  delayCount(term);
+  delay(term);
   motorPulse(2);
-  delayCount(term);
+  delay(term);
   motorPulse(2);
-  delayCount(term);
+  delay(term);
   motorPulse(3);
-  delayCount(term);
+  delay(term);
   motorPulse(3);
 }
 
-void stretch_vib(char tactor)
+void stretch_vib(char test_num, char tactor_char)
 {
-  Serial.println("Skin stretch");
-  servo.write(120);
-  ssOn = true;
-  delay(50);
-  if(tactor == '0')
+  int tactor_num = 0;
+  if(tactor_char == '0')
   {
-    for(int i=0;i<10;i++)
+    tactor_num = 1;
+  }
+  else
+  {
+    tactor_num = 3;
+  }
+
+  if(test_num == '0')
+  {
+    // basic stretch
+    Serial.println("basic stretch");
+    servo_act(120, servoPin);
+    delay(550);
+    servo_act(90, servoPin);
+    delay(180);
+  }
+  else if(test_num == '1')
+  {
+    // pulse train dense
+    Serial.println("pulse train dense");
+    servo_act(120, servoPin);
+    delay(50);
+    for(int i=0;i<20;i++)
     {
-      motorPulse(0);
+      motorPulse(tactor_num);
       delay(11);
     }
-  }
-  else if (tactor == '1')
-  {
-    for(int i=0;i<10;i++)
-    {
-      motorPulse(1);
-      delay(11);
-    }
-  }
-  
-  delay(500);
-  
-  servo.write(90);
-  delay(50);
-  ssOn = true;
-  if(tactor == '0')
-  {
+    delay(500);
+    servo_act(90, servoPin);
+    delay(50);
     for(int i=0;i<5;i++)
     {
-      motorPulse(0);
+      motorPulse(tactor_num);
       delay(22);
     }
   }
-  else if (tactor == '1')
+  else if(test_num == '2')
   {
+    // pulse train sparse
+    Serial.println("pulse train sparse");
+    servo_act(120, servoPin);
+    delay(50);
+    for(int i=0;i<10;i++)
+    {
+      motorPulse(tactor_num);
+      delay(26);
+    }
+    delay(500);
+    servo_act(90, servoPin);
+    delay(50);
     for(int i=0;i<5;i++)
     {
-      motorPulse(1);
+      motorPulse(tactor_num);
       delay(22);
+    }
+  }
+  else if(test_num == '3')
+  {
+    // cont. vib
+    Serial.println("cont. vib");
+    servo_act(120, servoPin);
+    delay(50);
+    for(int i=0;i<75;i++)
+    {
+      motorPulse(tactor_num);
+    }
+    delay(500);
+    servo_act(90, servoPin);
+    delay(50);
+    for(int i=0;i<5;i++)
+    {
+      motorPulse(tactor_num);
+      delay(22);
+    }
+  }
+  else if(test_num == '4')
+  {
+    // pulse train dense to sparse
+    Serial.println("pulse train dense-to-sparse");
+    servo_act(120, servoPin);
+    delay(50);
+    for(int i=0;i<6;i++)
+    {
+      motorPulse(tactor_num);
+      delay(12);
+    }
+    for(int i=0;i<3;i++)
+    {
+      motorPulse(tactor_num);
+      delay(28);
+    }
+    for(int i=0;i<1;i++)
+    {
+      motorPulse(tactor_num);
+      delay(60);
+    }
+    for(int i=0;i<1;i++)
+    {
+      motorPulse(tactor_num);
+      delay(124);
+    }
+    delay(500);
+    servo_act(90, servoPin);
+    delay(50);
+    for(int i=0;i<5;i++)
+    {
+      motorPulse(tactor_num);
+      delay(22);
+    }
+  }
+  else if(test_num == '5')
+  {
+    // dense pulse train after stretch
+    Serial.println("dense pulse train after stretch");
+    servo_act(120, servoPin);
+    delay(500);
+    for(int i=0;i<20;i++)
+    {
+      motorPulse(tactor_num);
+      delay(11);
+    }
+    delay(500);
+    servo_act(90, servoPin);
+    delay(50);
+    for(int i=0;i<5;i++)
+    {
+      motorPulse(tactor_num);
+      delay(22);
+    }
+  }
+  else if(test_num == '6')
+  {
+    // dense to sparse pulse train after stretch
+    Serial.println("dense to sparse pulse train after stretch");
+    servo_act(120, servoPin);
+    delay(500);
+    for(int i=0;i<20;i++)
+    {
+      motorPulse(tactor_num);
+      delay(11);
+    }
+    for(int i=0;i<10;i++)
+    {
+      motorPulse(tactor_num);
+      delay(26);
+    }
+    delay(500);
+    servo_act(90, servoPin);
+    delay(50);
+    for(int i=0;i<5;i++)
+    {
+      motorPulse(tactor_num);
+      delay(22);
+    }
+  }
+  
+  //Serial.println("stretch function finished");
+}
+
+void ss_in_out(int servo_deg, int target_deg, int isi)
+{
+  if(servo_deg < target_deg)
+  {
+    while(servo_deg < target_deg)
+    {
+      servo_deg += 1;
+      servo_act(servo_deg, servoPin);
+      delay(isi);
+    }
+  }
+  else
+  {
+    while(servo_deg > target_deg)
+    {
+      servo_deg -= 1;
+      servo_act(servo_deg, servoPin);
+      delay(isi);
+      
     }
   }
 }
 
-// Function: delayCount
-// Delay time and count up currTime
-void delayCount(int time)
+void servo_act(int deg, int pin)
 {
-  delay(time);
+  int pulse_width = map(deg, 0, 180, 750, 2250);
+  digitalWrite(pin, HIGH);
+  delayMicroseconds(pulse_width);
+  digitalWrite(pin, LOW);
 }
